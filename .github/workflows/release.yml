@@ -1,0 +1,76 @@
+name: Publish Windows release
+on:
+  push:
+    branches: [main]
+    paths:
+      - src/LocalModelManager.App/LocalModelManager.App.csproj
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: publish-windows
+  cancel-in-progress: false
+jobs:
+  release:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Read version and check for an existing release
+        id: version
+        shell: pwsh
+        run: |
+          [xml]$project = Get-Content src/LocalModelManager.App/LocalModelManager.App.csproj
+          $version = $project.Project.PropertyGroup.Version | Where-Object { $_ } | Select-Object -First 1
+          if ($version -notmatch '^\d+\.\d+\.\d+$') { throw 'Stable version X.Y.Z required.' }
+          $tag = "v$version"
+          "value=$version" >> $env:GITHUB_OUTPUT
+          "tag=$tag" >> $env:GITHUB_OUTPUT
+          $release = gh release view $tag --json isDraft 2>$null
+          if ($LASTEXITCODE -eq 0) {
+            if (($release | ConvertFrom-Json).isDraft) { throw 'A draft already exists: inspect it before retrying.' }
+            'exists=true' >> $env:GITHUB_OUTPUT
+          } else {
+            'exists=false' >> $env:GITHUB_OUTPUT
+          }
+      - name: Build and test
+        if: steps.version.outputs.exists != 'true'
+        run: |
+          dotnet build -c Release
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          dotnet test -c Release --no-build
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Package installer and update feed
+        if: steps.version.outputs.exists != 'true'
+        shell: pwsh
+        env:
+          RELEASE_VERSION: ${{ steps.version.outputs.value }}
+        run: ./scripts/Build-Release.ps1 -Version $env:RELEASE_VERSION -RepositoryUrl "https://github.com/$env:GH_REPO"
+      - name: Publish complete release
+        if: steps.version.outputs.exists != 'true'
+        shell: pwsh
+        env:
+          RELEASE_VERSION: ${{ steps.version.outputs.value }}
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
+          RELEASE_COMMIT: ${{ github.sha }}
+        run: |
+          $notes = "docs/releases/$env:RELEASE_VERSION.md"
+          if (!(Test-Path $notes)) { throw "Missing release notes: $notes" }
+          $assets = @(Get-ChildItem "artifacts/$env:RELEASE_VERSION/releases" -File | ForEach-Object FullName)
+          if ($assets.Count -lt 3) { throw 'Incomplete release output.' }
+          gh release create $env:RELEASE_TAG @assets --target $env:RELEASE_COMMIT --title "Local Model Manager $env:RELEASE_VERSION" --notes-file $notes --draft
+          if ($LASTEXITCODE -ne 0) { throw 'Failed to upload draft release.' }
+          gh release edit $env:RELEASE_TAG --draft=false --latest
+          if ($LASTEXITCODE -ne 0) { throw 'Failed to publish release.' }
+      - uses: actions/upload-artifact@v4
+        if: steps.version.outputs.exists != 'true'
+        with:
+          name: windows-release
+          path: artifacts/*/releases/*

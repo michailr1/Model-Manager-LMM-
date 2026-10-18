@@ -1,0 +1,95 @@
+<Window x:Class="LocalModelManager.App.MainWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Local Model Manager" Width="1100" Height="960" WindowStartupLocation="CenterScreen" MinWidth="760" MinHeight="640" MaxHeight="{Binding Source={x:Static SystemParameters.WorkArea}, Path=Height}" AllowDrop="True" PreviewDragOver="OnDragOver" PreviewDrop="OnDrop">
+    <Grid Margin="16">
+        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/><RowDefinition Height="110"/><RowDefinition Height="150"/></Grid.RowDefinitions>
+        <Border Grid.Row="0" BorderBrush="LightGray" BorderThickness="0,0,0,1" Padding="0,0,0,8" Margin="0,0,0,8"
+                DataContext="{Binding Updates, RelativeSource={RelativeSource AncestorType=Window}}">
+            <StackPanel>
+                <WrapPanel>
+                    <TextBlock Text="{Binding Version, StringFormat=Версия {0}}" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                    <Button Content="Проверить обновления" Command="{Binding CheckCommand}" Padding="8,4" Margin="0,0,8,4"/>
+                    <Button Content="Обновить и перезапустить" Command="{Binding RestartCommand}" Padding="8,4" Margin="0,0,0,4"/>
+                </WrapPanel>
+                <TextBlock Text="{Binding Status}" TextWrapping="Wrap"/>
+                <Expander Header="Настройки обновления" Margin="0,4,0,0">
+                    <StackPanel IsEnabled="{Binding IsIdle}">
+                        <DockPanel Margin="0,4"><TextBlock Text="GitHub: " VerticalAlignment="Center"/><TextBox Text="{Binding RepositoryUrl, UpdateSourceTrigger=PropertyChanged}" ToolTip="https://github.com/владелец/репозиторий"/></DockPanel>
+                        <CheckBox Content="Автоматически проверять и скачивать при запуске и каждые 6 часов" IsChecked="{Binding Automatic}" Margin="0,4"/>
+                        <Button Content="Сохранить" Command="{Binding SaveCommand}" HorizontalAlignment="Left" Padding="8,4"/>
+                        <TextBlock Text="Перезапуск выполняется по кнопке, когда операции с моделью завершены. Источник — публичный репозиторий." TextWrapping="Wrap" FontSize="11" Margin="0,4,0,0"/>
+                    </StackPanel>
+                </Expander>
+            </StackPanel>
+        </Border>
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel>
+        <StackPanel>
+            <TextBlock Text="Local Model Manager" FontSize="26" FontWeight="SemiBold"/>
+            <TextBlock Text="M5 · API и профиль Hermes" Margin="0,4,0,8"/>
+            <Border Padding="10" BorderBrush="SteelBlue" BorderThickness="2" CornerRadius="6">
+                <StackPanel>
+                    <TextBlock Text="Перетащите один .gguf сюда или выберите файл" FontSize="17"/>
+                    <Button Content="Выбрать GGUF" Click="OnBrowse" IsEnabled="{Binding IsIdle}" HorizontalAlignment="Left" Padding="12,5" Margin="0,8"/>
+                    <TextBlock Text="{Binding FileName}" FontWeight="Bold"/>
+                    <TextBox Text="{Binding FullPath, Mode=OneWay}" IsReadOnly="True" BorderThickness="0" TextWrapping="Wrap"/>
+                    <TextBlock Text="{Binding FileSize}"/>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+        <StackPanel Margin="0,12">
+            <TextBlock Text="{Binding Gpu}" TextWrapping="Wrap"/>
+            <TextBlock Text="{Binding LmsPath}" TextWrapping="Wrap" Margin="0,5"/>
+            <DockPanel><TextBlock Text="Путь LMS (если не найден): " VerticalAlignment="Center"/><TextBox Text="{Binding ConfiguredPath, UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding IsIdle}"/></DockPanel>
+                        <TabControl Margin="0,12,0,0">
+                <TabItem Header="Подключение модели">
+<GroupBox Header="Подключение модели">
+                <StackPanel Margin="8">
+                    <DockPanel><TextBlock Text="Категория: " VerticalAlignment="Center"/><TextBox Text="{Binding Repository, UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding IsIdle}"/></DockPanel>
+                    <TextBlock Text="Подставляется из имени GGUF автоматически; можно изменить. local — ваша локальная категория, а не издатель модели." TextWrapping="Wrap" Margin="0,4"/>
+                    <TextBlock Text="По умолчанию: Symbolic Link — без копирования исходной модели." TextWrapping="Wrap"/>
+                    <CheckBox Content="Copy — полная копия (потребуется отдельное подтверждение)" IsChecked="{Binding CopyMode}" IsEnabled="{Binding IsIdle}" Margin="0,6"/>
+                    <Button Content="Подключить к LM Studio…" Command="{Binding ImportCommand}" HorizontalAlignment="Left" Padding="12,6"/>
+                    <TextBlock Text="{Binding ImportStatus}" TextWrapping="Wrap" Margin="0,6,0,0"/>
+                </StackPanel>
+            </GroupBox>
+                </TabItem>
+                <TabItem Header="Память · Hermes 64K">
+                    <StackPanel Margin="10">
+                        <TextBlock Text="Контекст: 65 536 токенов. Категория берётся с вкладки подключения." TextWrapping="Wrap"/>
+                        <Button Content="Оценить память для Hermes" Command="{Binding EstimateCommand}" HorizontalAlignment="Left" Padding="12,6" Margin="0,8"/>
+                        <TextBlock Text="{Binding MemorySummary}" TextWrapping="Wrap"/>
+                    </StackPanel>
+                </TabItem>
+                <TabItem Header="Загрузка">
+                    <StackPanel Margin="10">
+                        <TextBlock Text="Загрузка использует рекомендацию с вкладки памяти. Контекст Hermes: 65 536." TextWrapping="Wrap"/>
+                        <WrapPanel Margin="0,8">
+                            <Button Content="Загрузить модель…" Command="{Binding LoadCommand}" Padding="12,6" Margin="0,0,8,0"/>
+                            <Button Content="Проверить загруженные модели" Command="{Binding LoadedCommand}" Padding="12,6"/>
+                        </WrapPanel>
+                        <TextBlock Text="{Binding LoadStatus}" TextWrapping="Wrap"/>
+                    </StackPanel>
+                </TabItem>                <TabItem Header="API · Hermes">
+                    <StackPanel Margin="10">
+                        <Button Content="Проверить API и подготовить Hermes" Command="{Binding ApiCommand}" HorizontalAlignment="Left" Padding="12,6" Margin="0,0,0,8"/>
+                        <TextBlock Text="{Binding ApiSummary}" TextWrapping="Wrap"/>
+                        <WrapPanel Margin="0,8">
+                            <Button Content="Сохранить профиль для этого ПК" Click="OnExportHermes" IsEnabled="{Binding CanExportLocalProfile}" Padding="10,5" Margin="0,0,8,0"/>
+                            <Button Content="Сохранить профиль для LAN" Tag="lan" Click="OnExportHermes" IsEnabled="{Binding CanExportLanProfile}" Padding="10,5"/>
+                        </WrapPanel>
+                        <TextBlock Text="Экспорт не меняет текущие настройки Hermes. После выгрузки модели её ID может измениться — проверьте API повторно." TextWrapping="Wrap" FontSize="11"/>
+                    </StackPanel>
+                </TabItem>            </TabControl>
+        </StackPanel>
+        </StackPanel>
+        </ScrollViewer>
+        <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,0,0,12">
+            <Button Content="Обновить обнаружение" Command="{Binding DiscoverCommand}" Padding="10,6" Margin="0,0,8,0"/>
+            <Button Content="Список моделей" Command="{Binding ListCommand}" Padding="10,6" Margin="0,0,8,0"/>
+            <Button Content="Статус сервера" Command="{Binding StatusCommand}" Padding="10,6" Margin="0,0,8,0"/>
+            <Button Content="Отмена" Command="{Binding CancelCommand}" Padding="10,6"/>
+        </StackPanel>
+        <GroupBox Grid.Row="3" Header="Результат" Margin="0,0,0,12"><TextBox Text="{Binding Output, Mode=OneWay}" IsReadOnly="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" FontFamily="Consolas"/></GroupBox>
+        <GroupBox Grid.Row="4" Header="Logs"><TextBox Text="{Binding Logs, Mode=OneWay}" IsReadOnly="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" FontFamily="Consolas"/></GroupBox>
+    </Grid>
+</Window>
